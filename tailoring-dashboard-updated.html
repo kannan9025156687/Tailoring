@@ -1,0 +1,739 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Tailoring Dashboard</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<style>
+  :root { --bg:#0a0e1a; --panel:#12172a; --panel2:#171d33; --border:#242b45; --orange:#ff7a1a; --orange-dim:rgba(255,122,26,0.15); --text:#f0f2f8; --sub:#8b93ac; }
+  * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  html, body { background:var(--bg); color:var(--text); font-family:'Segoe UI', Arial, sans-serif; min-height:100vh; }
+  #app { max-width:680px; margin:0 auto; padding:16px 16px 40px; }
+  header { display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; }
+  header h1 { font-size:18px; color:var(--orange); }
+  #settingsBtn { background:var(--panel); border:1px solid var(--border); color:var(--text); width:38px; height:38px; border-radius:8px; font-size:16px; cursor:pointer; }
+
+  #setupNotice { display:none; background:#2a1d0d; border:1px solid #ff9900; color:#ffcc80; padding:14px; border-radius:10px; margin-bottom:16px; font-size:12px; line-height:1.6; }
+  #setupNotice.active { display:block; }
+  #setupNotice code { background:rgba(0,0,0,0.3); padding:2px 6px; border-radius:4px; }
+
+  #tabBar { display:flex; background:var(--panel); border:1px solid var(--border); border-radius:10px; padding:4px; margin-bottom:16px; }
+  .tab-btn { flex:1; background:none; border:none; color:var(--sub); padding:10px; border-radius:8px; font-size:12px; font-weight:700; cursor:pointer; }
+  .tab-btn.active { background:var(--orange); color:#000; }
+  .view { display:none; }
+  .view.active { display:block; }
+
+  #loadingBar { display:none; font-size:12px; color:var(--sub); text-align:center; padding:10px; }
+  #loadingBar.active { display:block; }
+
+  /* ---- Measurements: customer list ---- */
+  #searchBar { width:100%; background:var(--panel); border:1px solid var(--border); color:var(--text); padding:12px 14px; border-radius:10px; font-size:14px; outline:none; margin-bottom:14px; }
+  #addCustomerBtn { width:100%; background:var(--orange); color:#000; border:none; padding:14px; border-radius:10px; font-size:15px; font-weight:700; cursor:pointer; margin-bottom:16px; }
+  .cust-card { background:var(--panel); border:1px solid var(--border); border-radius:12px; padding:13px 14px; margin-bottom:9px; display:flex; justify-content:space-between; align-items:center; cursor:pointer; }
+  .cust-name { font-size:15px; font-weight:600; }
+  .cust-phone { font-size:12px; color:var(--sub); margin-top:2px; }
+  .cust-count { font-size:11px; background:var(--orange-dim); color:var(--orange); padding:4px 9px; border-radius:10px; }
+  #emptyState { text-align:center; color:var(--sub); padding:30px 0; font-size:13px; }
+
+  .back-row { display:flex; align-items:center; gap:10px; margin-bottom:16px; }
+  .back-btn { background:var(--panel); border:1px solid var(--border); color:var(--text); width:36px; height:36px; border-radius:8px; font-size:16px; cursor:pointer; }
+  .detail-title { font-size:17px; font-weight:700; }
+  .detail-sub { font-size:12px; color:var(--sub); }
+  .action-row { display:flex; gap:10px; margin-bottom:16px; }
+  .action-row button { flex:1; padding:11px; border-radius:8px; font-size:13px; font-weight:700; cursor:pointer; border:none; }
+  .btn-primary { background:var(--orange); color:#000; }
+  .btn-secondary { background:var(--panel2); color:var(--text); border:1px solid var(--border) !important; }
+  .btn-danger { background:rgba(255,80,80,0.15); color:#ff6666; border:1px solid rgba(255,80,80,0.4) !important; }
+
+  .m-card { background:var(--panel); border:1px solid var(--border); border-radius:12px; padding:13px 14px; margin-bottom:10px; }
+  .m-top { display:flex; justify-content:space-between; align-items:center; }
+  .m-garment { font-size:14px; font-weight:700; color:var(--orange); }
+  .m-date { font-size:11px; color:var(--sub); }
+  .m-fields { display:grid; grid-template-columns:1fr 1fr; gap:6px 14px; margin-top:10px; font-size:12px; }
+  .m-fields .fk { color:var(--sub); }
+  .m-fields .fv { color:var(--text); font-weight:600; }
+  .m-notes { font-size:12px; color:var(--sub); margin-top:8px; font-style:italic; }
+  .m-actions { display:flex; gap:8px; margin-top:10px; }
+  .m-actions button { flex:1; padding:8px; border-radius:6px; font-size:11px; border:none; cursor:pointer; }
+
+  /* ---- Catalog ---- */
+  #catFilterRow { display:flex; gap:6px; margin-bottom:14px; overflow-x:auto; }
+  .filter-chip { flex:0 0 auto; font-size:12px; padding:7px 13px; border-radius:12px; border:1px solid var(--border); color:var(--sub); cursor:pointer; white-space:nowrap; }
+  .filter-chip.active { background:var(--orange-dim); color:var(--orange); border-color:var(--orange); }
+  #addDesignBtn { width:100%; background:var(--orange-dim); color:var(--orange); border:1px dashed var(--orange); border-radius:10px; padding:12px; font-size:14px; font-weight:700; cursor:pointer; margin-bottom:14px; }
+  #designGrid { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+  .design-card { background:var(--panel); border:1px solid var(--border); border-radius:12px; overflow:hidden; cursor:pointer; }
+  .design-card img { width:100%; aspect-ratio:3/4; object-fit:cover; display:block; background:var(--panel2); }
+  .design-card .dinfo { padding:9px 10px; }
+  .design-card .dname { font-size:13px; font-weight:600; }
+  .design-card .dcat { font-size:10px; color:var(--sub); margin-top:2px; }
+
+  /* ---- Rates ---- */
+  #rateAddRow { display:flex; gap:8px; margin-bottom:14px; }
+  #rateAddRow input { flex:1; background:var(--panel); border:1px solid var(--border); color:var(--text); border-radius:8px; padding:11px; font-size:13px; outline:none; }
+  #rateAddRow button { background:var(--orange); color:#000; border:none; border-radius:8px; padding:0 16px; font-weight:700; cursor:pointer; }
+  .rate-row { background:var(--panel); border:1px solid var(--border); border-radius:10px; padding:12px 14px; margin-bottom:8px; display:flex; justify-content:space-between; align-items:center; }
+  .rate-name { font-size:14px; font-weight:600; }
+  .rate-price { font-size:14px; font-weight:800; color:var(--orange); }
+  .rate-del { color:#ff6666; font-size:15px; cursor:pointer; padding:0 4px; margin-left:12px; }
+  #generateRateCardBtn { width:100%; background:var(--orange); color:#000; border:none; padding:14px; border-radius:10px; font-size:15px; font-weight:700; cursor:pointer; margin-top:16px; }
+
+  /* ---- Modals ---- */
+  .modalOverlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.6); z-index:50; align-items:flex-end; justify-content:center; }
+  .modalOverlay.active { display:flex; }
+  .modal-box { background:var(--panel); border-top:1px solid var(--border); border-radius:16px 16px 0 0; padding:20px 18px 26px; width:100%; max-width:680px; max-height:88vh; overflow-y:auto; }
+  .modal-box h3 { font-size:16px; color:var(--orange); margin-bottom:14px; }
+  .field { margin-bottom:12px; }
+  .field label { font-size:11px; color:var(--sub); text-transform:uppercase; letter-spacing:0.4px; display:block; margin-bottom:5px; }
+  .field input, .field select, .field textarea { width:100%; background:var(--panel2); color:var(--text); border:1px solid var(--border); border-radius:8px; padding:10px; font-size:14px; outline:none; }
+  .field textarea { resize:none; min-height:50px; }
+  .fields-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+  #imgPreview { width:100%; max-height:200px; object-fit:contain; border-radius:8px; margin-top:8px; display:none; background:var(--panel2); }
+  .modal-actions { display:flex; gap:10px; margin-top:16px; }
+  .modal-actions button { flex:1; padding:12px; border-radius:8px; font-size:14px; font-weight:700; border:none; cursor:pointer; }
+
+  #chitOverlay, #rateCardOverlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.75); z-index:60; align-items:center; justify-content:center; padding:20px; flex-direction:column; }
+  #chitOverlay.active, #rateCardOverlay.active { display:flex; }
+  .shareCard { width:100%; max-width:360px; background:#0d1224; border:2px solid var(--orange); border-radius:16px; padding:22px; }
+  .shareCard .chitHeader { text-align:center; margin-bottom:14px; }
+  .shareCard .shopName { font-size:18px; font-weight:800; color:var(--orange); }
+  .shareCard .shopTag { font-size:11px; color:var(--sub); margin-top:2px; }
+  .shareCard .chitDivider { height:1px; background:var(--border); margin:12px 0; }
+  .shareCard .chitRow { display:flex; justify-content:space-between; font-size:13px; padding:5px 0; }
+  .shareCard .chitLabel { color:var(--sub); }
+  .shareCard .chitVal { font-weight:700; }
+  .shareCard .chitFooter { text-align:center; font-size:10px; color:var(--sub); margin-top:14px; }
+  #shareActions { display:flex; gap:10px; margin-top:16px; max-width:360px; width:100%; }
+  #shareActions button { flex:1; padding:12px; border-radius:8px; font-size:13px; font-weight:700; border:none; cursor:pointer; }
+
+  #errorBox { display:none; position:fixed; left:50%; bottom:20px; transform:translateX(-50%); background:#2a0d0d; border:1px solid #ff4444; color:#ff9999; padding:12px 16px; border-radius:8px; font-size:12px; max-width:90%; z-index:100; }
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <h1>🧵 Tailoring Dashboard</h1>
+    <button id="settingsBtn">⚙</button>
+  </header>
+
+  <div id="setupNotice">
+    ⚠️ Google Sheets backend URL setup பண்ணல. ⚙ Settings தட்டி Apps Script Web App URL paste பண்ணுங்க.
+    <br><br>Steps: Google Sheet create பண்ணு → Extensions → Apps Script → Code.gs-ல் கொடுத்த script paste பண்ணு → Deploy → New deployment → Web app (Execute as: Me, Access: Anyone) → URL copy பண்ணி இங்க paste பண்ணு.
+  </div>
+
+  <div id="tabBar">
+    <button class="tab-btn active" data-tab="measureView">📏 Measurements</button>
+    <button class="tab-btn" data-tab="catalogView">🎨 Catalog</button>
+    <button class="tab-btn" data-tab="rateView">💰 Rates</button>
+  </div>
+
+  <div id="loadingBar">Loading...</div>
+
+  <!-- ================= MEASUREMENTS ================= -->
+  <div class="view active" id="measureView">
+    <div id="custListScreen">
+      <input type="text" id="searchBar" placeholder="Search name or phone...">
+      <button id="addCustomerBtn">+ Add Customer</button>
+      <div id="customerList"></div>
+    </div>
+    <div id="custDetailScreen" style="display:none;">
+      <div class="back-row">
+        <button class="back-btn" id="backToListBtn">←</button>
+        <div><div class="detail-title" id="custNameTitle"></div><div class="detail-sub" id="custPhoneSub"></div></div>
+      </div>
+      <div class="action-row">
+        <button class="btn-primary" id="addMeasureBtn">+ New Measurement</button>
+        <button class="btn-danger" id="deleteCustBtn">🗑</button>
+      </div>
+      <div id="measureList"></div>
+    </div>
+  </div>
+
+  <!-- ================= CATALOG ================= -->
+  <div class="view" id="catalogView">
+    <div id="catFilterRow">
+      <div class="filter-chip active" data-cat="All">All</div>
+      <div class="filter-chip" data-cat="Blouse">Blouse</div>
+      <div class="filter-chip" data-cat="Kurta">Kurta</div>
+      <div class="filter-chip" data-cat="Salwar">Salwar</div>
+      <div class="filter-chip" data-cat="Others">Others</div>
+    </div>
+    <button id="addDesignBtn">+ Add Design</button>
+    <div id="designGrid"></div>
+  </div>
+
+  <!-- ================= RATES ================= -->
+  <div class="view" id="rateView">
+    <div id="rateAddRow">
+      <input type="text" id="rateNameInput" placeholder="Item e.g. Blouse Stitching">
+      <input type="text" id="ratePriceInput" placeholder="₹" inputmode="numeric" style="max-width:90px;">
+      <button id="rateAddBtn">+</button>
+    </div>
+    <div id="rateList"></div>
+    <button id="generateRateCardBtn">🖼 Generate Rate Card Image</button>
+  </div>
+</div>
+
+<!-- ================= CUSTOMER MODAL ================= -->
+<div class="modalOverlay" id="custModalOverlay">
+  <div class="modal-box">
+    <h3>Add Customer</h3>
+    <div class="field"><label>Name</label><input type="text" id="fCustName"></div>
+    <div class="field"><label>Phone</label><input type="text" id="fCustPhone" inputmode="numeric"></div>
+    <div class="modal-actions">
+      <button class="btn-secondary" id="custModalCancel">Cancel</button>
+      <button class="btn-primary" id="custModalSave">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- ================= MEASUREMENT MODAL ================= -->
+<div class="modalOverlay" id="measureModalOverlay">
+  <div class="modal-box">
+    <h3>New Measurement</h3>
+    <div class="field">
+      <label>Garment Type</label>
+      <select id="fGarmentType">
+        <option value="Blouse">Blouse</option><option value="Shirt">Shirt (Men)</option><option value="Pant">Pant (Men)</option>
+        <option value="Chudidhar">Chudidhar / Salwar</option><option value="SareeFall">Saree Fall / Petticoat</option>
+        <option value="Kids">Kids Wear</option><option value="Others">Others</option>
+      </select>
+    </div>
+    <div class="fields-grid" id="dynamicFields"></div>
+    <div class="field" style="margin-top:12px;"><label>Notes</label><textarea id="fMeasureNotes"></textarea></div>
+    <div class="modal-actions">
+      <button class="btn-secondary" id="measureModalCancel">Cancel</button>
+      <button class="btn-primary" id="measureModalSave">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- ================= ADD DESIGN MODAL ================= -->
+<div class="modalOverlay" id="designModalOverlay">
+  <div class="modal-box">
+    <h3>Add Design</h3>
+    <div class="field">
+      <label>Photo</label>
+      <input type="file" id="fDesignImage" accept="image/*">
+      <img id="imgPreview">
+    </div>
+    <div class="field"><label>Name</label><input type="text" id="fDesignName" placeholder="e.g. Boat Neck Blouse"></div>
+    <div class="field"><label>Category</label><select id="fDesignCat"><option>Blouse</option><option>Kurta</option><option>Salwar</option><option>Others</option></select></div>
+    <div class="modal-actions">
+      <button class="btn-secondary" id="designModalCancel">Cancel</button>
+      <button class="btn-primary" id="designModalSave">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- ================= DESIGN DETAIL ================= -->
+<div class="modalOverlay" id="detailOverlay" style="align-items:center;">
+  <div class="modal-box" style="max-width:380px; border-radius:16px;">
+    <img id="detailImg" style="width:100%; border-radius:10px; margin-bottom:14px;">
+    <div id="detailName" style="font-size:17px; font-weight:700;"></div>
+    <div id="detailCat" style="font-size:12px; color:var(--sub); margin:2px 0 16px;"></div>
+    <button class="btn-primary" id="enquireBtn" style="width:100%; padding:13px; margin-bottom:10px; background:#25D366; color:#fff;">📤 Enquire on WhatsApp</button>
+    <button class="btn-danger" id="deleteDesignBtn" style="width:100%; padding:10px; margin-bottom:10px;">🗑 Delete Design</button>
+    <button class="btn-secondary" id="detailCloseBtn" style="width:100%; padding:12px;">Close</button>
+  </div>
+</div>
+
+<!-- ================= PIN MODAL ================= -->
+<div class="modalOverlay" id="pinOverlay">
+  <div class="modal-box">
+    <h3>Admin PIN</h3>
+    <div class="field"><label>Enter PIN</label><input type="password" id="fPin" inputmode="numeric" placeholder="4-digit PIN"></div>
+    <div class="modal-actions">
+      <button class="btn-secondary" id="pinCancel">Cancel</button>
+      <button class="btn-primary" id="pinSubmit">Confirm</button>
+    </div>
+  </div>
+</div>
+
+<!-- ================= SETTINGS MODAL ================= -->
+<div class="modalOverlay" id="settingsOverlay">
+  <div class="modal-box">
+    <h3>⚙ Dashboard Settings</h3>
+    <div class="field"><label>Apps Script Web App URL</label><input type="text" id="fScriptUrl" placeholder="https://script.google.com/macros/s/.../exec"></div>
+    <div class="field"><label>Shop Name</label><input type="text" id="fShopName" value="FixMate Tailoring"></div>
+    <div class="field"><label>Tagline</label><input type="text" id="fShopTag" value="Perfect Fit, Every Time"></div>
+    <div class="field"><label>WhatsApp Number</label><input type="text" id="fShopPhone" value="919025156687" inputmode="numeric"></div>
+    <div class="modal-actions">
+      <button class="btn-secondary" id="settingsCancel">Cancel</button>
+      <button class="btn-primary" id="settingsSave">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- ================= MEASUREMENT CHIT SHARE ================= -->
+<div id="chitOverlay">
+  <div class="shareCard" id="chitCard">
+    <div class="chitHeader"><div class="shopName" id="chitShopName"></div><div class="shopTag" id="chitShopTag"></div></div>
+    <div class="chitDivider"></div>
+    <div class="chitRow"><span class="chitLabel">Customer</span><span class="chitVal" id="chitCustName"></span></div>
+    <div class="chitRow"><span class="chitLabel">Phone</span><span class="chitVal" id="chitCustPhone"></span></div>
+    <div class="chitRow"><span class="chitLabel">Garment</span><span class="chitVal" id="chitGarment"></span></div>
+    <div class="chitRow"><span class="chitLabel">Date</span><span class="chitVal" id="chitDate"></span></div>
+    <div class="chitDivider"></div>
+    <div id="chitFieldsWrap"></div>
+    <div class="chitFooter" id="chitFooterPhone"></div>
+  </div>
+  <div id="shareActions">
+    <button id="chitSaveBtn" style="background:var(--orange); color:#000;">⬇ Save</button>
+    <button id="chitShareBtn" style="background:#25D366; color:#fff;">📤 WhatsApp</button>
+    <button id="chitCloseBtn" style="background:var(--panel2); color:var(--text); border:1px solid var(--border);">✕</button>
+  </div>
+</div>
+
+<!-- ================= RATE CARD SHARE ================= -->
+<div id="rateCardOverlay">
+  <div class="shareCard" id="rateCardImg">
+    <div class="chitHeader"><div class="shopName" id="rcShopName"></div><div class="shopTag" id="rcShopTag"></div></div>
+    <div class="chitDivider"></div>
+    <div id="rcRowsWrap"></div>
+    <div class="chitFooter" id="rcFooterPhone"></div>
+  </div>
+  <div id="shareActions">
+    <button id="rcSaveBtn" style="background:var(--orange); color:#000;">⬇ Save</button>
+    <button id="rcShareBtn" style="background:#25D366; color:#fff;">📤 WhatsApp</button>
+    <button id="rcCloseBtn" style="background:var(--panel2); color:var(--text); border:1px solid var(--border);">✕</button>
+  </div>
+</div>
+
+<div id="errorBox"></div>
+
+<script>
+(function(){
+  const DB = {
+    get(key, fb) { try { const v = localStorage.getItem(key); return v ? JSON.parse(v) : fb; } catch(e) { return fb; } },
+    set(key, val) { localStorage.setItem(key, JSON.stringify(val)); }
+  };
+  const CFG_KEY = 'td_config_v1';
+  let config = DB.get(CFG_KEY, { scriptUrl:'https://script.google.com/macros/s/AKfycbxyTMaBSjKiYVRByWDTF7GoS_D47drJ-LK1NsqtSnKFNxv-P1SIHhqsiTld26AfNzpb/exec', shopName:'FixMate Tailoring', shopTag:'Perfect Fit, Every Time', shopPhone:'919025156687' });
+  function saveConfig(){ DB.set(CFG_KEY, config); }
+
+  function escapeHtml(s){ const d=document.createElement('div'); d.textContent=s||''; return d.innerHTML; }
+  const errorBox = document.getElementById('errorBox');
+  function showError(msg){ errorBox.textContent=msg; errorBox.style.display='block'; setTimeout(()=>errorBox.style.display='none',4500); }
+  const loadingBar = document.getElementById('loadingBar');
+  function setLoading(on){ loadingBar.classList.toggle('active', on); }
+
+  /* ---------------- API helpers ---------------- */
+  async function apiGet(action, params){
+    if (!config.scriptUrl) { showSetupNotice(); throw new Error('Backend URL not set'); }
+    const url = new URL(config.scriptUrl);
+    url.searchParams.set('action', action);
+    Object.keys(params||{}).forEach(k => { if (params[k]!==undefined && params[k]!==null) url.searchParams.set(k, params[k]); });
+    const res = await fetch(url.toString());
+    const data = await res.json();
+    if (data.error) throw new Error(data.error);
+    return data;
+  }
+  async function apiPost(action, body, pin){
+    if (!config.scriptUrl) { showSetupNotice(); throw new Error('Backend URL not set'); }
+    const payload = Object.assign({ action }, body || {});
+    if (pin) payload.pin = pin;
+    const res = await fetch(config.scriptUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' }, // avoids CORS preflight on Apps Script
+      body: JSON.stringify(payload)
+    });
+    const data = await res.json();
+    if (data.error) throw new Error(data.error);
+    return data;
+  }
+  function showSetupNotice(){ document.getElementById('setupNotice').classList.add('active'); }
+
+  /* ---------------- PIN gate ---------------- */
+  const pinOverlay = document.getElementById('pinOverlay');
+  let pendingPinAction = null;
+  function requirePin(action){ pendingPinAction = action; document.getElementById('fPin').value=''; pinOverlay.classList.add('active'); }
+  document.getElementById('pinCancel').addEventListener('click', ()=>{ pinOverlay.classList.remove('active'); pendingPinAction=null; });
+  pinOverlay.addEventListener('click', (e)=>{ if(e.target===pinOverlay){ pinOverlay.classList.remove('active'); pendingPinAction=null; } });
+  document.getElementById('pinSubmit').addEventListener('click', ()=>{
+    const pin = document.getElementById('fPin').value.trim();
+    pinOverlay.classList.remove('active');
+    if (pendingPinAction) { const fn = pendingPinAction; pendingPinAction=null; fn(pin); }
+  });
+
+  /* ---------------- Tabs ---------------- */
+  document.querySelectorAll('.tab-btn').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+      document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
+      btn.classList.add('active'); document.getElementById(btn.dataset.tab).classList.add('active');
+      if (btn.dataset.tab==='catalogView') loadCatalog();
+      if (btn.dataset.tab==='rateView') loadRates();
+    });
+  });
+
+  /* ================= MEASUREMENTS ================= */
+  const FIELD_DEFS = {
+    Blouse: ['Chest','Waist','Shoulder','Sleeve Length','Sleeve Round','Front Neck Depth','Back Neck Depth','Blouse Length','Armhole'],
+    Shirt: ['Chest','Waist','Shoulder','Sleeve Length','Collar','Shirt Length'],
+    Pant: ['Waist','Hip','Length','Thigh','Bottom','Inseam'],
+    Chudidhar: ['Chest','Waist','Hip','Shoulder','Sleeve Length','Kurta Length','Salwar Length','Bottom'],
+    SareeFall: ['Waist','Length'],
+    Kids: ['Chest','Waist','Length','Shoulder'],
+    Others: []
+  };
+  let customers = [];
+  let currentCustomerId = null;
+  let currentMeasurements = [];
+
+  async function loadCustomers(){
+    setLoading(true);
+    try { customers = await apiGet('listCustomers'); renderCustomerList(); }
+    catch (err) { showError('Customers load ஆகல: ' + err.message); }
+    finally { setLoading(false); }
+  }
+
+  function renderCustomerList(){
+    const q = document.getElementById('searchBar').value.trim().toLowerCase();
+    const list = document.getElementById('customerList');
+    const filtered = customers.filter(c => !q || (c.name||'').toLowerCase().includes(q) || (c.phone||'').includes(q));
+    list.innerHTML = '';
+    if (filtered.length===0){ list.innerHTML = '<div id="emptyState">No customers yet.</div>'; return; }
+    filtered.forEach(c => {
+      const card = document.createElement('div');
+      card.className = 'cust-card';
+      card.innerHTML = `<div><div class="cust-name">${escapeHtml(c.name)}</div><div class="cust-phone">${escapeHtml(c.phone)}</div></div><div class="cust-count">›</div>`;
+      card.addEventListener('click', ()=> openCustomer(c.id));
+      list.appendChild(card);
+    });
+  }
+  document.getElementById('searchBar').addEventListener('input', renderCustomerList);
+
+  document.getElementById('addCustomerBtn').addEventListener('click', ()=>{
+    document.getElementById('fCustName').value=''; document.getElementById('fCustPhone').value='';
+    document.getElementById('custModalOverlay').classList.add('active');
+  });
+  document.getElementById('custModalCancel').addEventListener('click', ()=> document.getElementById('custModalOverlay').classList.remove('active'));
+  document.getElementById('custModalSave').addEventListener('click', async ()=>{
+    const name = document.getElementById('fCustName').value.trim();
+    const phone = document.getElementById('fCustPhone').value.trim();
+    if (!name) return;
+    setLoading(true);
+    try { await apiPost('addCustomer', { name, phone }); document.getElementById('custModalOverlay').classList.remove('active'); await loadCustomers(); }
+    catch (err) { showError('Save ஆகல: ' + err.message); }
+    finally { setLoading(false); }
+  });
+
+  async function openCustomer(id){
+    const c = customers.find(x=>x.id===id);
+    if (!c) return;
+    currentCustomerId = id;
+    document.getElementById('custNameTitle').textContent = c.name;
+    document.getElementById('custPhoneSub').textContent = c.phone;
+    document.getElementById('custListScreen').style.display='none';
+    document.getElementById('custDetailScreen').style.display='block';
+    setLoading(true);
+    try { currentMeasurements = await apiGet('listMeasurements', { customerId:id }); renderMeasureList(); }
+    catch (err) { showError('Measurements load ஆகல: ' + err.message); }
+    finally { setLoading(false); }
+  }
+  document.getElementById('backToListBtn').addEventListener('click', ()=>{
+    document.getElementById('custDetailScreen').style.display='none';
+    document.getElementById('custListScreen').style.display='block';
+  });
+  document.getElementById('deleteCustBtn').addEventListener('click', ()=>{
+    requirePin(async (pin)=>{
+      if (!confirm('Delete this customer and all measurements?')) return;
+      setLoading(true);
+      try { await apiPost('deleteCustomer', { id: currentCustomerId }, pin); document.getElementById('custDetailScreen').style.display='none'; document.getElementById('custListScreen').style.display='block'; await loadCustomers(); }
+      catch (err) { showError('Delete ஆகல: ' + err.message); }
+      finally { setLoading(false); }
+    });
+  });
+
+  function renderMeasureList(){
+    const wrap = document.getElementById('measureList');
+    wrap.innerHTML = '';
+    if (currentMeasurements.length===0){ wrap.innerHTML='<div id="emptyState">No measurements yet.</div>'; return; }
+    [...currentMeasurements].sort((a,b)=> new Date(b.date)-new Date(a.date)).forEach(m=>{
+      const card = document.createElement('div'); card.className='m-card';
+      const fieldsHtml = Object.entries(m.fields||{}).filter(([k,v])=>v).map(([k,v])=>`<div class="fk">${escapeHtml(k)}</div><div class="fv">${escapeHtml(v)}"</div>`).join('');
+      card.innerHTML = `
+        <div class="m-top"><div class="m-garment">${escapeHtml(m.garmentType)}</div><div class="m-date">${new Date(m.date).toLocaleDateString('en-IN',{day:'numeric',month:'short',year:'numeric'})}</div></div>
+        <div class="m-fields">${fieldsHtml}</div>
+        ${m.notes ? `<div class="m-notes">${escapeHtml(m.notes)}</div>` : ''}
+        <div class="m-actions">
+          <button class="btn-secondary" data-act="share">📤 Share Chit</button>
+          <button class="btn-danger" data-act="del">🗑</button>
+        </div>`;
+      card.querySelector('[data-act="share"]').addEventListener('click', ()=> openChit(m));
+      card.querySelector('[data-act="del"]').addEventListener('click', ()=>{
+        requirePin(async (pin)=>{
+          setLoading(true);
+          try { await apiPost('deleteMeasurement', { id:m.id }, pin); currentMeasurements = await apiGet('listMeasurements',{customerId:currentCustomerId}); renderMeasureList(); }
+          catch(err){ showError('Delete ஆகல: '+err.message); }
+          finally { setLoading(false); }
+        });
+      });
+      wrap.appendChild(card);
+    });
+  }
+
+  const fGarmentType = document.getElementById('fGarmentType');
+  const dynamicFields = document.getElementById('dynamicFields');
+  function renderDynamicFields(garmentType){
+    const defs = FIELD_DEFS[garmentType]||[];
+    dynamicFields.innerHTML='';
+    defs.forEach(label=>{
+      const wrap=document.createElement('div'); wrap.className='field';
+      wrap.innerHTML = `<label>${label} (in)</label><input type="text" inputmode="decimal" data-field="${label}" placeholder="e.g. 36">`;
+      dynamicFields.appendChild(wrap);
+    });
+    if (defs.length===0) dynamicFields.innerHTML='<div style="font-size:12px; color:var(--sub); grid-column:1/-1;">Use Notes below for custom measurements.</div>';
+  }
+  fGarmentType.addEventListener('change', ()=> renderDynamicFields(fGarmentType.value));
+
+  document.getElementById('addMeasureBtn').addEventListener('click', ()=>{
+    fGarmentType.value='Blouse'; renderDynamicFields('Blouse');
+    document.getElementById('fMeasureNotes').value='';
+    document.getElementById('measureModalOverlay').classList.add('active');
+  });
+  document.getElementById('measureModalCancel').addEventListener('click', ()=> document.getElementById('measureModalOverlay').classList.remove('active'));
+  document.getElementById('measureModalSave').addEventListener('click', async ()=>{
+    const fields = {};
+    dynamicFields.querySelectorAll('input[data-field]').forEach(inp=>{ fields[inp.dataset.field]=inp.value.trim(); });
+    setLoading(true);
+    try {
+      await apiPost('addMeasurement', { customerId: currentCustomerId, garmentType: fGarmentType.value, fields, notes: document.getElementById('fMeasureNotes').value.trim() });
+      document.getElementById('measureModalOverlay').classList.remove('active');
+      currentMeasurements = await apiGet('listMeasurements', { customerId: currentCustomerId });
+      renderMeasureList();
+    } catch (err) { showError('Save ஆகல: ' + err.message); }
+    finally { setLoading(false); }
+  });
+  renderDynamicFields('Blouse');
+
+  /* ---- Measurement chit share ---- */
+  const chitOverlay = document.getElementById('chitOverlay');
+  function openChit(m){
+    const c = customers.find(x=>x.id===currentCustomerId);
+    document.getElementById('chitShopName').textContent = config.shopName;
+    document.getElementById('chitShopTag').textContent = config.shopTag;
+    document.getElementById('chitCustName').textContent = c ? c.name : '';
+    document.getElementById('chitCustPhone').textContent = c ? c.phone : '';
+    document.getElementById('chitGarment').textContent = m.garmentType;
+    document.getElementById('chitDate').textContent = new Date(m.date).toLocaleDateString('en-IN',{day:'numeric',month:'short',year:'numeric'});
+    document.getElementById('chitFooterPhone').textContent = 'Powered by FixMate · ' + config.shopPhone;
+    const wrap = document.getElementById('chitFieldsWrap'); wrap.innerHTML='';
+    Object.entries(m.fields||{}).filter(([k,v])=>v).forEach(([k,v])=>{
+      const row=document.createElement('div'); row.className='chitRow';
+      row.innerHTML = `<span class="chitLabel">${escapeHtml(k)}</span><span class="chitVal">${escapeHtml(v)}"</span>`;
+      wrap.appendChild(row);
+    });
+    chitOverlay.classList.add('active');
+  }
+  document.getElementById('chitCloseBtn').addEventListener('click', ()=> chitOverlay.classList.remove('active'));
+  document.getElementById('chitSaveBtn').addEventListener('click', ()=>{
+    html2canvas(document.getElementById('chitCard'), {backgroundColor:'#0d1224', scale:2}).then(canvas=>{
+      const a=document.createElement('a'); a.download='measurement-chit-'+Date.now()+'.png'; a.href=canvas.toDataURL('image/png'); a.click();
+    });
+  });
+  document.getElementById('chitShareBtn').addEventListener('click', ()=>{
+    html2canvas(document.getElementById('chitCard'), {backgroundColor:'#0d1224', scale:2}).then(canvas=>{
+      canvas.toBlob(async (blob)=>{
+        const file=new File([blob],'measurement-chit.png',{type:'image/png'});
+        if (navigator.canShare && navigator.canShare({files:[file]})) { try{ await navigator.share({files:[file], title:'Measurement Chit'}); }catch(e){} }
+        else { const a=document.createElement('a'); a.download='measurement-chit-'+Date.now()+'.png'; a.href=canvas.toDataURL('image/png'); a.click(); window.open('https://wa.me/'+config.shopPhone,'_blank'); }
+      },'image/png');
+    });
+  });
+
+  /* ================= CATALOG ================= */
+  let designs = [];
+  let activeCat = 'All';
+  async function loadCatalog(){
+    setLoading(true);
+    try { designs = await apiGet('listCatalog'); renderDesigns(); }
+    catch(err){ showError('Catalog load ஆகல: '+err.message); }
+    finally { setLoading(false); }
+  }
+  document.querySelectorAll('#catFilterRow .filter-chip').forEach(chip=>{
+    chip.addEventListener('click', ()=>{
+      document.querySelectorAll('#catFilterRow .filter-chip').forEach(c=>c.classList.remove('active'));
+      chip.classList.add('active'); activeCat = chip.dataset.cat; renderDesigns();
+    });
+  });
+  function renderDesigns(){
+    const grid = document.getElementById('designGrid');
+    const filtered = activeCat==='All' ? designs : designs.filter(d=>d.category===activeCat);
+    grid.innerHTML='';
+    if (filtered.length===0){ grid.innerHTML='<div id="emptyState" style="grid-column:1/-1;">No designs yet.</div>'; return; }
+    filtered.forEach(d=>{
+      const card=document.createElement('div'); card.className='design-card';
+      card.innerHTML = `<img src="${d.imageUrl}" loading="lazy"><div class="dinfo"><div class="dname">${escapeHtml(d.name)}</div><div class="dcat">${escapeHtml(d.category)}</div></div>`;
+      card.addEventListener('click', ()=> openDesignDetail(d));
+      grid.appendChild(card);
+    });
+  }
+
+  const designModalOverlay = document.getElementById('designModalOverlay');
+  const fDesignImage = document.getElementById('fDesignImage');
+  const imgPreview = document.getElementById('imgPreview');
+  let pendingImageDataUrl = null;
+
+  document.getElementById('addDesignBtn').addEventListener('click', ()=>{
+    requirePin((pin)=>{
+      window._designPin = pin;
+      fDesignImage.value=''; imgPreview.style.display='none'; pendingImageDataUrl=null;
+      document.getElementById('fDesignName').value=''; document.getElementById('fDesignCat').value='Blouse';
+      designModalOverlay.classList.add('active');
+    });
+  });
+  document.getElementById('designModalCancel').addEventListener('click', ()=> designModalOverlay.classList.remove('active'));
+  fDesignImage.addEventListener('change', ()=>{
+    const file = fDesignImage.files[0]; if (!file) return;
+    const img=new Image(); const reader=new FileReader();
+    reader.onload=(ev)=>{
+      img.onload=()=>{
+        const maxW=800; const scale=Math.min(1,maxW/img.width);
+        const w=Math.round(img.width*scale), h=Math.round(img.height*scale);
+        const c=document.createElement('canvas'); c.width=w; c.height=h;
+        c.getContext('2d').drawImage(img,0,0,w,h);
+        pendingImageDataUrl = c.toDataURL('image/jpeg',0.8);
+        imgPreview.src=pendingImageDataUrl; imgPreview.style.display='block';
+      };
+      img.src=ev.target.result;
+    };
+    reader.readAsDataURL(file);
+  });
+  document.getElementById('designModalSave').addEventListener('click', async ()=>{
+    const name = document.getElementById('fDesignName').value.trim();
+    if (!name){ showError('Design name போடுங்க'); return; }
+    if (!pendingImageDataUrl){ showError('Photo தேர்ந்தெடுங்க'); return; }
+    setLoading(true);
+    try {
+      await apiPost('addCatalogItem', { name, category: document.getElementById('fDesignCat').value, imageBase64: pendingImageDataUrl }, window._designPin);
+      designModalOverlay.classList.remove('active');
+      await loadCatalog();
+    } catch (err) { showError('Upload ஆகல: ' + err.message); }
+    finally { setLoading(false); }
+  });
+
+  const detailOverlay = document.getElementById('detailOverlay');
+  let currentDetail = null;
+  function openDesignDetail(d){
+    currentDetail = d;
+    document.getElementById('detailImg').src = d.imageUrl;
+    document.getElementById('detailName').textContent = d.name;
+    document.getElementById('detailCat').textContent = d.category;
+    detailOverlay.classList.add('active');
+  }
+  document.getElementById('detailCloseBtn').addEventListener('click', ()=> detailOverlay.classList.remove('active'));
+  document.getElementById('enquireBtn').addEventListener('click', ()=>{
+    const msg = encodeURIComponent('Hi! I am interested in this design: ' + currentDetail.name + ' (' + currentDetail.category + ')');
+    window.open('https://wa.me/' + config.shopPhone + '?text=' + msg, '_blank');
+  });
+  document.getElementById('deleteDesignBtn').addEventListener('click', ()=>{
+    requirePin(async (pin)=>{
+      if (!confirm('Delete this design?')) return;
+      setLoading(true);
+      try { await apiPost('deleteCatalogItem', { id: currentDetail.id }, pin); detailOverlay.classList.remove('active'); await loadCatalog(); }
+      catch(err){ showError('Delete ஆகல: '+err.message); }
+      finally { setLoading(false); }
+    });
+  });
+
+  /* ================= RATES ================= */
+  let rates = [];
+  async function loadRates(){
+    setLoading(true);
+    try { rates = await apiGet('listRates'); renderRates(); }
+    catch(err){ showError('Rates load ஆகல: '+err.message); }
+    finally { setLoading(false); }
+  }
+  function renderRates(){
+    const list = document.getElementById('rateList');
+    list.innerHTML='';
+    if (rates.length===0){ list.innerHTML='<div id="emptyState">No rates yet.</div>'; return; }
+    rates.forEach(r=>{
+      const row=document.createElement('div'); row.className='rate-row';
+      row.innerHTML = `<div class="rate-name">${escapeHtml(r.name)}</div><div style="display:flex; align-items:center;"><div class="rate-price">₹${escapeHtml(r.price)}</div><div class="rate-del" data-id="${r.id}">✕</div></div>`;
+      row.querySelector('.rate-del').addEventListener('click', ()=>{
+        requirePin(async (pin)=>{
+          setLoading(true);
+          try { await apiPost('deleteRate', { id:r.id }, pin); await loadRates(); }
+          catch(err){ showError('Delete ஆகல: '+err.message); }
+          finally { setLoading(false); }
+        });
+      });
+      list.appendChild(row);
+    });
+  }
+  document.getElementById('rateAddBtn').addEventListener('click', ()=>{
+    const name = document.getElementById('rateNameInput').value.trim();
+    const price = document.getElementById('ratePriceInput').value.trim();
+    if (!name || !price) return;
+    requirePin(async (pin)=>{
+      setLoading(true);
+      try {
+        await apiPost('addRate', { name, price }, pin);
+        document.getElementById('rateNameInput').value=''; document.getElementById('ratePriceInput').value='';
+        await loadRates();
+      } catch(err){ showError('Save ஆகல: '+err.message); }
+      finally { setLoading(false); }
+    });
+  });
+
+  const rateCardOverlay = document.getElementById('rateCardOverlay');
+  document.getElementById('generateRateCardBtn').addEventListener('click', ()=>{
+    if (rates.length===0){ showError('முதலில் rate items சேருங்க'); return; }
+    document.getElementById('rcShopName').textContent = config.shopName;
+    document.getElementById('rcShopTag').textContent = config.shopTag;
+    document.getElementById('rcFooterPhone').textContent = 'WhatsApp: ' + config.shopPhone;
+    const wrap = document.getElementById('rcRowsWrap'); wrap.innerHTML='';
+    rates.forEach(r=>{
+      const row=document.createElement('div'); row.className='chitRow';
+      row.innerHTML = `<span class="chitLabel">${escapeHtml(r.name)}</span><span class="chitVal">₹${escapeHtml(r.price)}</span>`;
+      wrap.appendChild(row);
+    });
+    rateCardOverlay.classList.add('active');
+  });
+  document.getElementById('rcCloseBtn').addEventListener('click', ()=> rateCardOverlay.classList.remove('active'));
+  document.getElementById('rcSaveBtn').addEventListener('click', ()=>{
+    html2canvas(document.getElementById('rateCardImg'), {backgroundColor:'#0d1224', scale:2}).then(canvas=>{
+      const a=document.createElement('a'); a.download='rate-card-'+Date.now()+'.png'; a.href=canvas.toDataURL('image/png'); a.click();
+    });
+  });
+  document.getElementById('rcShareBtn').addEventListener('click', ()=>{
+    html2canvas(document.getElementById('rateCardImg'), {backgroundColor:'#0d1224', scale:2}).then(canvas=>{
+      canvas.toBlob(async (blob)=>{
+        const file=new File([blob],'rate-card.png',{type:'image/png'});
+        if (navigator.canShare && navigator.canShare({files:[file]})) { try{ await navigator.share({files:[file], title:'Rate Card'}); }catch(e){} }
+        else { const a=document.createElement('a'); a.download='rate-card-'+Date.now()+'.png'; a.href=canvas.toDataURL('image/png'); a.click(); window.open('https://wa.me/'+config.shopPhone,'_blank'); }
+      },'image/png');
+    });
+  });
+
+  /* ================= SETTINGS ================= */
+  const settingsOverlay = document.getElementById('settingsOverlay');
+  document.getElementById('settingsBtn').addEventListener('click', ()=>{
+    document.getElementById('fScriptUrl').value = config.scriptUrl;
+    document.getElementById('fShopName').value = config.shopName;
+    document.getElementById('fShopTag').value = config.shopTag;
+    document.getElementById('fShopPhone').value = config.shopPhone;
+    settingsOverlay.classList.add('active');
+  });
+  document.getElementById('settingsCancel').addEventListener('click', ()=> settingsOverlay.classList.remove('active'));
+  document.getElementById('settingsSave').addEventListener('click', ()=>{
+    config.scriptUrl = document.getElementById('fScriptUrl').value.trim();
+    config.shopName = document.getElementById('fShopName').value.trim() || 'FixMate Tailoring';
+    config.shopTag = document.getElementById('fShopTag').value.trim();
+    config.shopPhone = document.getElementById('fShopPhone').value.trim();
+    saveConfig();
+    settingsOverlay.classList.remove('active');
+    document.getElementById('setupNotice').classList.toggle('active', !config.scriptUrl);
+    if (config.scriptUrl) loadCustomers();
+  });
+
+  /* ---------------- Init ---------------- */
+  if (!config.scriptUrl) showSetupNotice(); else loadCustomers();
+})();
+</script>
+</body>
+</html>
